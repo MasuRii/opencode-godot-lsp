@@ -263,5 +263,5 @@ MIT License - See [LICENSE](LICENSE) for details.
 ## Acknowledgments
 
 - [Godot Engine](https://godotengine.org/) - The amazing open-source game engine
-- [OpenCode](https://github.com/opencode-ai/opencode) - AI-powered terminal coding assistant
+- [OpenCode](https://github.com/anomalyco/opencode) - AI-powered terminal coding assistant
 - Godot community for documentation on headless LSP operation
