@@ -1,0 +1,36 @@
+// OpenCode Configuration Example with Godot LSP Support
+// Copy the "lsp" section to your opencode.jsonc file
+// Located at: ~/.config/opencode/opencode.jsonc (Linux/macOS)
+//             C:\Users\<USERNAME>\.config\opencode\opencode.jsonc (Windows)
+{
+  // ═══════════════════════════════════════════════════════════════════════════
+  // LSP SERVERS CONFIGURATION
+  // Language Server Protocol integrations for enhanced code intelligence
+  // ═══════════════════════════════════════════════════════════════════════════
+  "lsp": {
+    // GDScript LSP for Godot Engine development
+    // Note: Requires Godot Editor (launched automatically in headless mode)
+    // The bridge script converts stdio (OpenCode) to TCP (Godot's LSP)
+    "gdscript": {
+      // ┌─────────────────────────────────────────────────────────────────────┐
+      // │ IMPORTANT: Update the path below to match your installation!       │
+      // └─────────────────────────────────────────────────────────────────────┘
+      
+      // Windows example:
+      "command": ["node", "C:/Users/YOUR_USERNAME/.config/opencode/scripts/godot-lsp-bridge.js"],
+      
+      // Linux/macOS example:
+      // "command": ["node", "/home/YOUR_USERNAME/.config/opencode/scripts/godot-lsp-bridge.js"],
+      
+      // With custom options:
+      // "command": [
+      //   "node", 
+      //   "/path/to/godot-lsp-bridge.js",
+      //   "--port", "6008",
+      //   "--godot", "/custom/path/to/godot"
+      // ],
+      
+      "extensions": [".gd", ".gdshader"]
+    }
+  }
+}
