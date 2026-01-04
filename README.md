@@ -1,6 +1,6 @@
 # OpenCode Godot LSP Bridge
 
-A bridge script that enables **GDScript Language Server Protocol (LSP)** support in [OpenCode](https://github.com/opencode-ai/opencode) for Godot Engine development.
+A bridge script that enables **GDScript Language Server Protocol (LSP)** support in [OpenCode](https://github.com/anomalyco/opencode) for Godot Engine development.
 
 ## The Problem
 
