@@ -5,6 +5,12 @@
  * Bridges stdio (what OpenCode expects) to TCP (what Godot provides).
  * Automatically launches Godot in true headless mode if not running.
  * 
+ * COMPATIBILITY NOTE (2026-01-05):
+ * - Optimized for OpenCode v1.1.2 (increased timeouts, environment awareness).
+ * - Fixed missing GDScript language ID support in OpenCode "Official API" 
+ *   by intercepting and rewriting JSON-RPC packets.
+ * - Targets Godot 4.5.1+ stability with improved headless flags.
+ * 
  * Usage: node godot-lsp-bridge.js [--port <port>] [--host <host>] [--godot <path>] [--project <path>]
  * 
  * Environment Variables:
@@ -22,6 +28,7 @@ const { spawn, execSync } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
+const { Transform } = require('stream');
 
 // Detect platform
 const isWindows = os.platform() === 'win32';
@@ -33,7 +40,7 @@ const args = process.argv.slice(2);
 let port = 6005; // Default for Godot Tools VS Code extension
 let host = '127.0.0.1';
 let godotPath = process.env.GODOT_PATH || 'godot';
-let projectPath = process.env.GODOT_PROJECT || process.cwd();
+let projectPath = process.env.GODOT_PROJECT || process.env.OPENCODE_PROJECT_ROOT || process.cwd();
 
 for (let i = 0; i < args.length; i++) {
     if (args[i] === '--port' && args[i + 1]) {
@@ -71,13 +78,24 @@ function findGodot() {
     }
     // Try to find in PATH
     try {
-        const result = execSync('where godot', { encoding: 'utf8', timeout: 5000 });
+        const cmd = isWindows ? 'where godot' : 'which godot';
+        const result = execSync(cmd, { encoding: 'utf8', timeout: 5000 });
         const lines = result.trim().split('\n');
         if (lines.length > 0 && lines[0]) {
             return lines[0].trim();
         }
     } catch (e) {
         // Not in PATH
+    }
+    
+    // Fallback variations
+    if (!isWindows) {
+        const variations = ['godot4', 'godot-editor'];
+        for (const v of variations) {
+            try {
+                return execSync(`which ${v}`, { encoding: 'utf8', timeout: 2000 }).trim().split('\n')[0];
+            } catch (e) {}
+        }
     }
     return null;
 }
@@ -121,6 +139,8 @@ function isPortOpen(port, host, timeout = 1000) {
     });
 }
 
+let spawnedGodotProcess = null;
+
 async function launchGodotEditor() {
     const godot = findGodot();
     if (!godot) {
@@ -141,15 +161,12 @@ async function launchGodotEditor() {
     console.error(`[godot-lsp-bridge] Project: ${project}`);
     console.error(`[godot-lsp-bridge] Port: ${port}`);
 
-    // Build command-line arguments for Godot 4.4.1+
-    // Key flags:
-    //   --editor    : Required - LSP server only exists in editor mode
-    //   --headless  : Enables headless mode (--display-driver headless --audio-driver Dummy)
-    //   --lsp-port  : Specifies the LSP port
-    //   --path      : Path to the project directory
+    // Build command-line arguments for Godot 4.4.1+ (Targets 4.5.1 stability)
     const godotArgs = [
         '--editor',
         '--headless',
+        '--display-driver', 'headless',
+        '--audio-driver', 'Dummy',
         '--lsp-port', port.toString(),
         '--path', project
     ];
@@ -163,29 +180,27 @@ async function launchGodotEditor() {
         windowsHide: true  // Backup for Windows - hides console window
     };
 
-    let godotProcess;
-
     if (isLinux && !process.env.DISPLAY) {
         // On Linux without DISPLAY, try using xvfb-run if available
         try {
             execSync('which xvfb-run', { encoding: 'utf8', timeout: 2000 });
             console.error('[godot-lsp-bridge] No DISPLAY detected, using xvfb-run...');
-            godotProcess = spawn('xvfb-run', ['-a', godot, ...godotArgs], spawnOptions);
+            spawnedGodotProcess = spawn('xvfb-run', ['-a', godot, ...godotArgs], spawnOptions);
         } catch (e) {
             // xvfb-run not available, try anyway (--headless should handle it)
             console.error('[godot-lsp-bridge] No DISPLAY and xvfb-run not found, trying headless anyway...');
-            godotProcess = spawn(godot, godotArgs, spawnOptions);
+            spawnedGodotProcess = spawn(godot, godotArgs, spawnOptions);
         }
     } else {
         // Windows, macOS, or Linux with DISPLAY - use direct spawn with headless flags
-        godotProcess = spawn(godot, godotArgs, spawnOptions);
+        spawnedGodotProcess = spawn(godot, godotArgs, spawnOptions);
     }
 
-    godotProcess.unref();
+    spawnedGodotProcess.unref();
 
-    // Wait for LSP to become available (up to 20 seconds - headless editor may take time to initialize)
+    // Wait for LSP to become available (OpenCode v1.1.2 timeout is 30s)
     console.error('[godot-lsp-bridge] Waiting for LSP server to start...');
-    for (let i = 0; i < 40; i++) {
+    for (let i = 0; i < 60; i++) { // Increased to 30s for v1.1.2
         await new Promise(r => setTimeout(r, 500));
         if (await isPortOpen(port, host)) {
             console.error(`[godot-lsp-bridge] Godot LSP ready on port ${port}`);
@@ -204,6 +219,50 @@ async function launchGodotEditor() {
     console.error('[godot-lsp-bridge]   3. On Linux without X: install xvfb (sudo apt install xvfb)');
     console.error('[godot-lsp-bridge]   4. Try running Godot Editor manually to verify it works');
     return false;
+}
+
+/**
+ * Smart LSP Interceptor
+ * Rewrites "languageId":"plaintext" to "languageId":"gdscript" 
+ * for incoming OpenCode -> Godot packets to fix missing repo support.
+ */
+function createLspInterceptor() {
+    let buffer = Buffer.alloc(0);
+    return new Transform({
+        transform(chunk, encoding, callback) {
+            buffer = Buffer.concat([buffer, chunk]);
+            while (true) {
+                const str = buffer.toString('utf8');
+                const contentLengthMatch = str.match(/Content-Length: (\d+)\r\n/);
+                if (!contentLengthMatch) break;
+
+                const headerEndIndex = str.indexOf('\r\n\r\n');
+                if (headerEndIndex === -1) break;
+
+                const contentLength = parseInt(contentLengthMatch[1], 10);
+                const bodyStart = headerEndIndex + 4;
+
+                if (buffer.length < bodyStart + contentLength) break;
+
+                let body = buffer.slice(bodyStart, bodyStart + contentLength).toString('utf8');
+                
+                if (body.includes('"languageId":"plaintext"')) {
+                    body = body.replace(/"languageId":"plaintext"/g, '"languageId":"gdscript"');
+                    const newBody = Buffer.from(body, 'utf8');
+                    const newHeaders = str.substring(0, headerEndIndex)
+                        .replace(/Content-Length: \d+/, `Content-Length: ${newBody.length}`);
+                    
+                    this.push(Buffer.from(newHeaders + '\r\n\r\n', 'utf8'));
+                    this.push(newBody);
+                } else {
+                    this.push(buffer.slice(0, bodyStart + contentLength));
+                }
+
+                buffer = buffer.slice(bodyStart + contentLength);
+            }
+            callback();
+        }
+    });
 }
 
 async function main() {
@@ -231,11 +290,12 @@ async function main() {
 
     // Connect to the LSP server
     const socket = new net.Socket();
+    const interceptor = createLspInterceptor();
 
     socket.on('connect', () => {
         console.error(`[godot-lsp-bridge] Connected to Godot LSP on ${host}:${port}`);
-        // Pipe stdin to socket (OpenCode -> Godot)
-        process.stdin.pipe(socket);
+        // Pipe stdin through interceptor to socket (OpenCode -> Bridge -> Godot)
+        process.stdin.pipe(interceptor).pipe(socket);
     });
 
     // Pipe socket to stdout (Godot -> OpenCode)
@@ -250,16 +310,24 @@ async function main() {
         process.exit(0);
     });
 
-    // Handle process termination gracefully
-    process.on('SIGTERM', () => {
+    // Graceful cleanup
+    const cleanup = () => {
         socket.end();
+        if (spawnedGodotProcess) {
+            console.error('[godot-lsp-bridge] Cleaning up background processes...');
+            try {
+                if (isWindows) {
+                    execSync(`taskkill /pid ${spawnedGodotProcess.pid} /T /F`, { stdio: 'ignore' });
+                } else {
+                    spawnedGodotProcess.kill();
+                }
+            } catch (e) {}
+        }
         process.exit(0);
-    });
+    };
 
-    process.on('SIGINT', () => {
-        socket.end();
-        process.exit(0);
-    });
+    process.on('SIGTERM', cleanup);
+    process.on('SIGINT', cleanup);
 
     socket.connect(port, host);
 }

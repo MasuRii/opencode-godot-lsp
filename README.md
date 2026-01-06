@@ -15,7 +15,7 @@ This bridge script:
 
 ## Requirements
 
-- **Node.js** (v14 or higher)
+- **Node.js** (v14 or higher) or **Bun** (v1.0 or higher)
 - **Godot Engine 4.4.1+** (recommended for best headless support)
 - **OpenCode** CLI
 
@@ -27,7 +27,62 @@ sudo apt install xvfb
 
 ## Installation
 
-### 1. Download the Bridge Script
+There are multiple ways to install the bridge script:
+
+### Option A: Install via npm (Recommended)
+
+```bash
+# Global installation with npm
+npm install -g opencode-godot-lsp
+
+# Or with Bun
+bun add -g opencode-godot-lsp
+```
+
+After installation, configure OpenCode to use the globally installed command:
+
+```jsonc
+{
+  "lsp": {
+    "gdscript": {
+      "command": ["godot-lsp-bridge"],
+      "extensions": [".gd", ".gdshader"]
+    }
+  }
+}
+```
+
+### Option B: Install via npx (No Installation Required)
+
+You can run directly without installing:
+
+```jsonc
+{
+  "lsp": {
+    "gdscript": {
+      "command": ["npx", "opencode-godot-lsp"],
+      "extensions": [".gd", ".gdshader"]
+    }
+  }
+}
+```
+
+Or with Bun:
+
+```jsonc
+{
+  "lsp": {
+    "gdscript": {
+      "command": ["bunx", "opencode-godot-lsp"],
+      "extensions": [".gd", ".gdshader"]
+    }
+  }
+}
+```
+
+### Option C: Manual Installation
+
+#### 1. Download the Bridge Script
 
 Clone this repository or download `godot-lsp-bridge.js`:
 
@@ -39,7 +94,7 @@ git clone https://github.com/MasuRii/opencode-godot-lsp.git
 curl -O https://raw.githubusercontent.com/MasuRii/opencode-godot-lsp/main/godot-lsp-bridge.js
 ```
 
-### 2. Place the Script
+### 2. Place the Script (Manual Installation Only)
 
 Put `godot-lsp-bridge.js` somewhere accessible. Common locations:
 
@@ -48,7 +103,7 @@ Put `godot-lsp-bridge.js` somewhere accessible. Common locations:
 | Windows | `C:\Users\<USERNAME>\.config\opencode\scripts\godot-lsp-bridge.js` |
 | Linux/macOS | `~/.config/opencode/scripts/godot-lsp-bridge.js` |
 
-### 3. Configure OpenCode
+### 3. Configure OpenCode (Manual Installation)
 
 Add the following to your `opencode.jsonc` configuration file:
 
@@ -115,6 +170,14 @@ Once configured, OpenCode will automatically:
 The bridge script accepts several options:
 
 ```bash
+# If installed globally via npm/bun
+godot-lsp-bridge [options]
+
+# If running via npx/bunx
+npx opencode-godot-lsp [options]
+bunx opencode-godot-lsp [options]
+
+# If running manually
 node godot-lsp-bridge.js [options]
 
 Options:
@@ -125,6 +188,43 @@ Options:
 ```
 
 ### Example with Options
+
+Using global installation:
+
+```jsonc
+{
+  "lsp": {
+    "gdscript": {
+      "command": [
+        "godot-lsp-bridge",
+        "--port", "6008",
+        "--godot", "/custom/path/to/godot"
+      ],
+      "extensions": [".gd", ".gdshader"]
+    }
+  }
+}
+```
+
+Using npx:
+
+```jsonc
+{
+  "lsp": {
+    "gdscript": {
+      "command": [
+        "npx", 
+        "opencode-godot-lsp",
+        "--port", "6008",
+        "--godot", "/custom/path/to/godot"
+      ],
+      "extensions": [".gd", ".gdshader"]
+    }
+  }
+}
+```
+
+Using manual installation:
 
 ```jsonc
 {
@@ -221,6 +321,8 @@ The bridge will automatically use `xvfb-run` when no DISPLAY is available.
 
 ### Full opencode.jsonc Example
 
+Using npm global installation (recommended):
+
 ```jsonc
 {
   // ═══════════════════════════════════════════════════════════════════════════
@@ -231,6 +333,19 @@ The bridge will automatically use `xvfb-run` when no DISPLAY is available.
     // GDScript LSP for Godot Engine development
     // Note: Requires Godot Editor (launched automatically in headless mode)
     // The bridge script converts stdio (OpenCode) to TCP (Godot's LSP)
+    "gdscript": {
+      "command": ["godot-lsp-bridge"],
+      "extensions": [".gd", ".gdshader"]
+    }
+  }
+}
+```
+
+Using manual installation:
+
+```jsonc
+{
+  "lsp": {
     "gdscript": {
       "command": ["node", "C:/Users/YOUR_USERNAME/.config/opencode/scripts/godot-lsp-bridge.js"],
       "extensions": [".gd", ".gdshader"]

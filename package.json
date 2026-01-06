@@ -1,11 +1,23 @@
 {
   "name": "opencode-godot-lsp",
   "version": "1.0.0",
-  "description": "GDScript LSP bridge for OpenCode - enables Godot language server support",
+  "description": "GDScript LSP bridge for OpenCode - enables Godot language server support via stdio-to-TCP bridging",
   "main": "godot-lsp-bridge.js",
   "bin": {
-    "godot-lsp-bridge": "./godot-lsp-bridge.js"
+    "godot-lsp-bridge": "./godot-lsp-bridge.js",
+    "opencode-godot-lsp": "./godot-lsp-bridge.js"
   },
+  "files": [
+    "godot-lsp-bridge.js",
+    "README.md",
+    "LICENSE"
+  ],
+  "os": [
+    "win32",
+    "linux",
+    "darwin"
+  ],
+  "preferGlobal": true,
   "scripts": {
     "start": "node godot-lsp-bridge.js"
   },
@@ -16,19 +28,24 @@
     "language-server",
     "opencode",
     "game-development",
-    "editor"
+    "editor",
+    "stdio",
+    "tcp",
+    "bridge",
+    "bun"
   ],
   "author": "",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/MasuRii/opencode-godot-lsp.git"
+    "url": "git+https://github.com/MasuRii/opencode-godot-lsp.git"
   },
   "bugs": {
     "url": "https://github.com/MasuRii/opencode-godot-lsp/issues"
   },
   "homepage": "https://github.com/MasuRii/opencode-godot-lsp#readme",
   "engines": {
-    "node": ">=14.0.0"
+    "node": ">=14.0.0",
+    "bun": ">=1.0.0"
   }
 }
