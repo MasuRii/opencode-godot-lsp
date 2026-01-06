@@ -1,6 +1,6 @@
 {
   "name": "opencode-godot-lsp",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "GDScript LSP bridge for OpenCode - enables Godot language server support via stdio-to-TCP bridging",
   "main": "godot-lsp-bridge.js",
   "bin": {
